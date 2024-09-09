@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <vector>
 
 // Add this line to set the subsystem to Windows and specify the entry point
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
@@ -89,10 +90,50 @@ int main() {
     // Command to execute (modifiable string)
     std::wstring command = L".\\python\\launcher_env\\Scripts\\python.exe .\\repo\\" + std::wstring(launcherVersion.begin(), launcherVersion.end()) + L"\\launcher.py";
 
+    // Create pipes for capturing stdout
+    HANDLE hStdOutRead, hStdOutWrite;
+    SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+    CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0);
+    SetHandleInformation(hStdOutRead, HANDLE_FLAG_INHERIT, 0);
+
+    // Redirect stdout to the pipe
+    si.dwFlags |= STARTF_USESTDHANDLES;
+    si.hStdOutput = hStdOutWrite;
+    si.hStdError = hStdOutWrite;
+
     // Create the process
-    if (CreateProcessW(NULL, &command[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        // Wait for the process to complete
-        WaitForSingleObject(pi.hProcess, INFINITE);
+    if (CreateProcessW(NULL, &command[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        // Wait for the process to complete or timeout after 10 seconds
+        DWORD waitResult = WaitForSingleObject(pi.hProcess, 30000);
+        DWORD exitCode = 0;
+        //if (waitResult == WAIT_TIMEOUT) {
+        //    TerminateProcess(pi.hProcess, 1);
+        //    MessageBoxW(NULL, L"Process timed out", L"Error", MB_OK);
+        //}
+        //else {
+        //    // Check the exit code of the process
+        //    
+        //}
+        GetExitCodeProcess(pi.hProcess, &exitCode);
+        // Read the stdout from the pipe
+        DWORD bytesRead;
+        CHAR buffer[4096];
+        std::vector<CHAR> output;
+        while (true) {
+            DWORD bytesAvailable = 0;
+            PeekNamedPipe(hStdOutRead, NULL, 0, NULL, &bytesAvailable, NULL);
+            if (bytesAvailable == 0) break;
+            if (ReadFile(hStdOutRead, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                output.insert(output.end(), buffer, buffer + bytesRead);
+            }
+        }
+        std::string stdoutStr(output.begin(), output.end());
+        std::wstring wstdoutStr(stdoutStr.begin(), stdoutStr.end());
+
+        if (exitCode != 0 and exitCode != 259) {
+            MessageBoxW(NULL, wstdoutStr.c_str(), L"Process Output (Error)", MB_OK);
+        }        
+
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
     }
@@ -102,6 +143,9 @@ int main() {
         std::wcerr << L"Command: " << command << std::endl;
         MessageBoxW(NULL, L"Failed to create process", L"Error", MB_OK);
     }
+
+    CloseHandle(hStdOutRead);
+    CloseHandle(hStdOutWrite);
 
     return 0;
 }
