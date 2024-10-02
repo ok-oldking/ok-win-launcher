@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <codecvt>
 #include <vector>
 #include <sstream>
 
@@ -20,20 +21,17 @@ std::wstring getAbsolutePath(const std::wstring& relativePath) {
     }
 }
 
+
 std::string WideStringToUTF8(const std::wstring& wstr) {
     if (wstr.empty()) return std::string();
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), NULL, 0, NULL, NULL);
-    std::string strTo(size_needed, 0);
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
-    return strTo;
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+    return conv.to_bytes(wstr);
 }
 
 std::wstring UTF8ToWideString(const std::string& str) {
     if (str.empty()) return std::wstring();
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), NULL, 0);
-    std::wstring wstrTo(size_needed, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &wstrTo[0], size_needed);
-    return wstrTo;
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+    return conv.from_bytes(str);
 }
 
 void modifyVenvCfg(const std::wstring& envDir) {
@@ -67,17 +65,19 @@ void modifyVenvCfg(const std::wstring& envDir) {
     // Convert the modified wide string back to UTF-8
     std::string contentModifiedUTF8 = WideStringToUTF8(content);
 
-    // Write the modified content back to the file in UTF-8
-    std::ofstream outFile(filePath, std::ios::out | std::ios::binary);
-    if (!outFile.is_open()) {
-        MessageBoxW(NULL, L"Failed to open pyvenv.cfg file for writing", L"Error", MB_OK);
-        return;
+    // Compare the original and modified content
+    if (contentUTF8 != contentModifiedUTF8) {
+        // Write the modified content back to the file in UTF-8
+        std::ofstream outFile(filePath, std::ios::out | std::ios::binary);
+        if (!outFile.is_open()) {
+            MessageBoxW(NULL, L"Failed to open pyvenv.cfg file for writing", L"Error", MB_OK);
+            return;
+        }
+
+        outFile.write(contentModifiedUTF8.c_str(), contentModifiedUTF8.size());
+        outFile.close();
     }
-
-    outFile.write(contentModifiedUTF8.c_str(), contentModifiedUTF8.size());
-    outFile.close();
 }
-
 
 std::wstring readLauncherVersion(const std::wstring& filePath) {
     std::wifstream file(filePath);
@@ -132,7 +132,7 @@ int main() {
     // Create the process
     if (CreateProcessW(NULL, &command[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
         // Wait for the process to complete or timeout after 30 seconds
-        DWORD waitResult = WaitForSingleObject(pi.hProcess, 30000);
+        DWORD waitResult = WaitForSingleObject(pi.hProcess, 1000);
         DWORD exitCode = 0;
         GetExitCodeProcess(pi.hProcess, &exitCode);
 
