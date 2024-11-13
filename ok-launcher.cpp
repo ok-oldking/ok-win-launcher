@@ -118,6 +118,9 @@ int main() {
     // Command to execute (modifiable string)
     std::wstring command = L".\\python\\launcher_env\\Scripts\\python.exe .\\repo\\" + launcherVersion + L"\\launcher.py";
 
+    SetEnvironmentVariableW(L"PYTHONHOME", NULL);
+    SetEnvironmentVariableW(L"PYTHONPATH", NULL);
+
     // Create pipes for capturing stdout
     HANDLE hStdOutRead, hStdOutWrite;
     SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
