@@ -34,9 +34,9 @@ std::wstring UTF8ToWideString(const std::string& str) {
     return conv.from_bytes(str);
 }
 
-void modifyVenvCfg(const std::wstring& envDir) {
+void modifyVenvCfg(const std::wstring& envDir, const std::wstring& relativPythonDir) {
     std::wstring absEnvDir = getAbsolutePath(envDir);
-    std::wstring pythonDir = absEnvDir.substr(0, absEnvDir.find_last_of(L"\\/"));
+    std::wstring pythonDir = getAbsolutePath(relativPythonDir);
     std::wstring filePath = absEnvDir + L"\\pyvenv.cfg";
 
     // Open the file in UTF-8 mode
@@ -79,7 +79,7 @@ void modifyVenvCfg(const std::wstring& envDir) {
     }
 }
 
-std::wstring readLauncherVersion(const std::wstring& filePath) {
+std::wstring readAppVersion(const std::wstring& filePath) {
     std::wifstream file(filePath);
     if (!file.is_open()) {
         MessageBoxW(NULL, L"Failed to open JSON file", L"Error", MB_OK);
@@ -89,7 +89,7 @@ std::wstring readLauncherVersion(const std::wstring& filePath) {
     std::wstring content((std::istreambuf_iterator<wchar_t>(file)), std::istreambuf_iterator<wchar_t>());
     file.close();
 
-    std::wregex versionRegex(LR"(\"launcher_version\"\s*:\s*"([^"]+)\")");
+    std::wregex versionRegex(LR"(\"app_version\"\s*:\s*"([^"]+)\")");
     std::wsmatch match;
     if (std::regex_search(content, match, versionRegex)) {
         return match[1].str();
@@ -110,13 +110,13 @@ int main() {
     si.wShowWindow = SW_HIDE;
 
     // Read the launcher version from the JSON file
-    std::wstring launcherVersion = readLauncherVersion(L".\\configs\\launcher.json");
+    std::wstring appVersion = readAppVersion(L".\\configs\\launcher.json");
 
     // Modify the pyvenv.cfg file
-    modifyVenvCfg(L".\\python\\launcher_env");
+    modifyVenvCfg(L".\\repo\\" + appVersion + L"\\.venv", L".\\python\\");
 
     // Command to execute (modifiable string)
-    std::wstring command = L".\\python\\launcher_env\\Scripts\\python.exe .\\repo\\" + launcherVersion + L"\\launcher.py";
+    std::wstring command = L".\\repo\\" + appVersion + L"\\.venv\\Scripts\\python.exe .\\repo\\" + appVersion + L"\\main.py";
 
     SetEnvironmentVariableW(L"PYTHONHOME", NULL);
     SetEnvironmentVariableW(L"PYTHONPATH", NULL);
