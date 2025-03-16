@@ -100,46 +100,47 @@ std::wstring readAppVersion(const std::wstring& filePath) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     STARTUPINFO si = { sizeof(STARTUPINFO) };
     PROCESS_INFORMATION pi;
-    ZeroMemory(&pi, sizeof(pi)); // Initialize PROCESS_INFORMATION
+    ZeroMemory(&pi, sizeof(pi));
 
-    // Set the flags to hide the console window
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
 
-    // Read the launcher version from the JSON file
     std::wstring appVersion = readAppVersion(L".\\configs\\launcher.json");
 
-    // Modify the pyvenv.cfg file
     modifyVenvCfg(L".\\repo\\" + appVersion + L"\\.venv", L".\\python\\");
 
-    // Command to execute (modifiable string)
     std::wstring command = L".\\repo\\" + appVersion + L"\\.venv\\Scripts\\python.exe .\\repo\\" + appVersion + L"\\main.py";
+
+    // Append command-line arguments
+    for (int i = 1; i < argc; ++i) {
+        command += L" \"";
+        std::string argStr(argv[i]);
+        std::wstring wargStr(argStr.begin(), argStr.end());
+        command += wargStr;
+        command += L"\"";
+    }
 
     SetEnvironmentVariableW(L"PYTHONHOME", NULL);
     SetEnvironmentVariableW(L"PYTHONPATH", NULL);
+    SetEnvironmentVariableW(L"PYTHONIOENCODING", L"utf-8");
 
-    // Create pipes for capturing stdout
     HANDLE hStdOutRead, hStdOutWrite;
     SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
     CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0);
     SetHandleInformation(hStdOutRead, HANDLE_FLAG_INHERIT, 0);
 
-    // Redirect stdout to the pipe
     si.dwFlags |= STARTF_USESTDHANDLES;
     si.hStdOutput = hStdOutWrite;
     si.hStdError = hStdOutWrite;
 
-    // Create the process
     if (CreateProcessW(NULL, &command[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        // Wait for the process to complete or timeout after 30 seconds
         DWORD waitResult = WaitForSingleObject(pi.hProcess, 1000);
         DWORD exitCode = 0;
         GetExitCodeProcess(pi.hProcess, &exitCode);
 
-        // Read the stdout from the pipe
         DWORD bytesRead;
         CHAR buffer[4096];
         std::vector<CHAR> output;
@@ -162,7 +163,6 @@ int main() {
         CloseHandle(pi.hThread);
     }
     else {
-        // Handle error
         MessageBoxW(NULL, L"Failed to create process", L"Error", MB_OK);
     }
 
