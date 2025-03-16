@@ -34,16 +34,15 @@ std::wstring UTF8ToWideString(const std::string& str) {
     return conv.from_bytes(str);
 }
 
-void modifyVenvCfg(const std::wstring& envDir, const std::wstring& relativPythonDir) {
+bool modifyVenvCfg(const std::wstring& envDir, const std::wstring& relativPythonDir) {
     std::wstring absEnvDir = getAbsolutePath(envDir);
     std::wstring pythonDir = getAbsolutePath(relativPythonDir);
     std::wstring filePath = absEnvDir + L"\\pyvenv.cfg";
 
     // Open the file in UTF-8 mode
     std::ifstream file(filePath, std::ios::in | std::ios::binary);
-    if (!file.is_open()) {
-        MessageBoxW(NULL, L"Failed to open pyvenv.cfg file", L"Error", MB_OK);
-        return;
+    if (!file.is_open()) {        
+        return false;
     }
 
     std::ostringstream contentStream;
@@ -71,12 +70,13 @@ void modifyVenvCfg(const std::wstring& envDir, const std::wstring& relativPython
         std::ofstream outFile(filePath, std::ios::out | std::ios::binary);
         if (!outFile.is_open()) {
             MessageBoxW(NULL, L"Failed to open pyvenv.cfg file for writing", L"Error", MB_OK);
-            return;
+            return false;
         }
 
         outFile.write(contentModifiedUTF8.c_str(), contentModifiedUTF8.size());
         outFile.close();
     }
+    return true;
 }
 
 std::wstring readAppVersion(const std::wstring& filePath) {
@@ -110,9 +110,21 @@ int main(int argc, char* argv[]) {
 
     std::wstring appVersion = readAppVersion(L".\\configs\\launcher.json");
 
-    modifyVenvCfg(L".\\repo\\" + appVersion + L"\\.venv", L".\\python\\");
+    std::wstring command;
 
-    std::wstring command = L".\\repo\\" + appVersion + L"\\.venv\\Scripts\\python.exe .\\repo\\" + appVersion + L"\\main.py";
+    if (modifyVenvCfg(L".\\repo\\" + appVersion + L"\\.venv", L".\\python\\")) {
+        command = L".\\repo\\" + appVersion + L"\\.venv\\Scripts\\python.exe .\\repo\\" + appVersion + L"\\main.py";
+    }
+    else {
+        //check if the .venv\Scripts\python.exe exists if exists, use it instead
+        std::wstring pythonPath = L".\\.venv\\Scripts\\python.exe";
+        if (GetFileAttributesW(pythonPath.c_str()) != INVALID_FILE_ATTRIBUTES && !(GetFileAttributesW(pythonPath.c_str()) & FILE_ATTRIBUTE_DIRECTORY)) {
+            command = pythonPath + L" main.py";
+        }
+        else {
+            MessageBoxW(NULL, L"Failed to open pyvenv.cfg file or python env does not exist", L"Error", MB_OK);
+        }
+    }        
 
     // Append command-line arguments
     for (int i = 1; i < argc; ++i) {

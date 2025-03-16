@@ -5,8 +5,9 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>C:\Users\ok\Downloads\ok-ww中文</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>F:\projects\ok-gi</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArguments>-t 1</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerWorkingDirectory>C:\Users\ok\Downloads\ok-ww中文</LocalDebuggerWorkingDirectory>
